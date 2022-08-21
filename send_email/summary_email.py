@@ -1,15 +1,16 @@
 """Sends an email summarising articles scraped from sources within the 
 previous 24 hours
 
-codeauthor:: William Yelverton
+TODO: Depreciate for send_email
+
+codeauthor:: Will
 """
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.message import EmailMessage
-from rightmove_scraper_zone2 import manage_rightmove
-
-
+from rightmove_scraper import manage_rightmove
+    
 def send_email(html_msg):
     """Sends the email containing articles to the list of recipients
 
@@ -19,9 +20,10 @@ def send_email(html_msg):
     msg = EmailMessage()
     msg.set_content("body of email")
 
-    gmail_user = 'PLACEHOLDER@gmail.com'
+    gmail_user = 'PLACEHOLDER'
     from_addr = f"Propety Web Scraper <{gmail_user}>"
-    to_addr = ["john.smith@gmail.com"]
+    to_addr = ['PLACEHOLDER']
+    bcc_addr = []
 
     gmail_password = 'PLACEHOLDER'
 
@@ -30,6 +32,7 @@ def send_email(html_msg):
  
     message['From'] = from_addr
     message['To'] = ", ".join(to_addr)
+    #message['Bcc'] = ", ".join(bcc_addr)
     message['Subject'] = 'New Properties found.'   #The subject line
     
     #The body and the attachments for the mail
@@ -39,7 +42,7 @@ def send_email(html_msg):
     session.starttls() #enable security
     session.login(gmail_user, gmail_password) #login with mail_id and password
     text = message.as_string()
-    session.sendmail(from_addr, to_addr, text)
+    session.sendmail(from_addr, to_addr + bcc_addr, text)
     session.quit()
     print('Mail Sent')
 
@@ -72,12 +75,12 @@ def article_html_updated(propety_website, updated_property_list):
         description = property_dict['description']
         price_change = property_dict['price_change']
         price = property_dict['updated_price']
-        #old_price = property_dict['old_price']
+        old_price = property_dict['old_price']
         #title_trimmed = title.split('\n')[0]
         article_html_str_updated = article_html_str_updated + (
             f'<a href={link}><h3>{address}</h3></a>'
             f'<h4>{round(price_change, 1)}% Price Decrease</h4>'
-            f'<p>New Price: £{price} PCM</p>'
+            f'<p>Price: <span style="color:red"><strike>£{old_price}</strike></span> £{price} PCM (-{round(price_change, 1)}% )</p>'
             #f'<p>Old Price: £{old_price} PCM</p>'
             f'<img src="{image}" alt="Property Photo" style="width:476px;height:317px;">'
             f'<p>{description}<br>'
@@ -146,7 +149,7 @@ def build_html():#article_html_str_updated, article_html_str_new):
 
 
 if __name__ == '__main__':
-    updated_property_list, new_property_list = manage_rightmove('rightmove_zone2')
+    updated_property_list, new_property_list = manage_rightmove('rightmove_maya')
     article_html_updated('Rightmove', updated_property_list)
     article_html_new('Rightmove', new_property_list)#, new_property_list)
     html_msg = build_html()#updated_property_list)
