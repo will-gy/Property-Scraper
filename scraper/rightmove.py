@@ -68,6 +68,7 @@ class RightMoveScraper(HouseScraper):
             for listing in property_list_items:
                 house = self._parse_property_info(listing)
 
+                # Assumption that top result will always be a paid promoted house
                 if house.id != 0:
                     self._property_list.append({
                         'id': house.id,
