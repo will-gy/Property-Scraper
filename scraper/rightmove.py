@@ -1,9 +1,9 @@
-from msilib.schema import Property
 import requests
+import json
 from collections import namedtuple
 from bs4 import BeautifulSoup
 from typing import List, NamedTuple
-from scraper.house_scraper import HouseScraper
+from house_scraper import HouseScraper
 
 class RightMoveScraper(HouseScraper):
     def __init__(self, url) -> None:
@@ -17,10 +17,21 @@ class RightMoveScraper(HouseScraper):
         # Initialise bs4
         # self._soup = None
 
-    def _parse_javascript(self):
-        """Retrieve full html including javascript
+    def _page_total(self):
+        """Retrieve page total
         """        
-        self._first_url_html = None
+        page_html = requests.get(
+            self._url
+        )
+        try:
+            page_json = json.loads(page_html.content)
+        except ValueError as e:
+            print(e)
+        try:
+            return page_json.get('pagination').get('total')
+        except KeyError as e:
+            print(e)
+        
     
     def _iterate_page(self, page_num):
         return f"{self._url}&index={24*page_num}"
@@ -44,16 +55,23 @@ class RightMoveScraper(HouseScraper):
 
     
     def get_page_list(self) -> List:
-        page_nums = self._soup.find_all('span', 'pagination-pageInfo')
-        print("page_nums")
-        print(page_nums[-1].text)
-        last_page_num = page_nums[-1].text
+        # cookies={"pwv":"2",
+        # "pws":"functional|analytics|content_recommendation|targeted_advertising|social_media"
+        # }
+        # page = requests.get(self._url)
 
-        print(f"page nums {page_nums}")
+        # soup = BeautifulSoup(page.content, 'html.parser')
+        # page_nums = soup.find_all('span', 'pagination-pageInfo')
+
+        # print("page_nums")
+        # print(page_nums[-1].text)
+        # last_page_num = page_nums[-1].text
+
+        # print(f"page nums {page_nums}")
+        last_page_num = self._page_total()
 
         for i in range(1, int(last_page_num)):
             self._url_page_list.append(self._iterate_page(i))
-
 
     def get_property_info(self):
         super().get_property_info()
@@ -83,3 +101,15 @@ class RightMoveScraper(HouseScraper):
 
         self._property_list = [dict(t) for t in {tuple(d.items()) for d in self._property_list}]
 
+    def run(self) -> List:
+        self.get_page_list()
+        self.get_property_info()
+        return self._property_list
+
+rightmove_scraper = RightMoveScraper(
+    'https://www.rightmove.co.uk/api/_search?locationIdentifier=STATION%5E2162&minBedrooms=1&maxPrice=1750\
+        &numberOfPropertiesPerPage=24&radius=3.0&sortType=6&index=0&includeLetAgreed=false&viewType=LIST&\
+            channel=RENT&areaSizeUnit=sqft&currencyCode=GBP&isFetching=false&viewport='
+)
+
+rightmove_scraper.retrieve_data()
