@@ -12,9 +12,9 @@ class HouseScraper(ABC):
         self._url_page_list = [url]
         self._property_list = []
 
-    @abstractmethod
-    def get_page_list(self) -> List:
-        pass
+    # @abstractmethod
+    # def get_page_list(self) -> List:
+    #     pass
     
     @abstractmethod
     def get_property_info(self):
