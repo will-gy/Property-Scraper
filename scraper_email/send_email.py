@@ -100,9 +100,7 @@ class SendEmail:
             self.article_updated = self.article_updated + (
                 f'<a href={link}><h3>{address}</h3></a>'
                 f'Updated: {timestamp} UTC'
-                f'<h4>{round(price_change, 1)}% Price Decrease</h4>'
-                f'<p>Price: <span style="color:red"><strike>£{old_price}</strike></span> \
-                    £{price} PCM (-{round(price_change, 1)}% )</p>'
+                f'{self._build_price_change_html(price_change, price, old_price)}'
                 f'<ul>'
                 f'{"".join(price_history)}'
                 f'</ul>'
@@ -110,6 +108,31 @@ class SendEmail:
                 f'<p>{description}<br>'
                 f'<br>'
             )
+
+    def _build_price_change_html(self, price_change: float, price: float, old_price: 
+                                 float, rent: bool=True) -> str:
+        """Builds html string for price change part of email
+
+        Args:
+            price_change (float): Change in price
+            price (float): New price
+            old_price (float): Old price
+            rent (bool, optional): Bool for rental/buying. Defaults to True.
+
+        Returns:
+            str: Html string for price change
+        """
+        price_change_neg = price_change < 0
+        if rent:
+            return (
+                f"<h4>{round(price_change, 1)}% Price Change</h4>"
+                f'<p>Price: <span style="color:{"red" if price_change_neg else "green"}">'
+                f'<strike>£{old_price}</strike></span> £{price} '
+                f"PCM ({'{0:+}'.format(round(price_change, 1))}% )</p>"
+                )
+        else:
+            # TODO: Implement for buying properties
+            return 'Price change not implemented for non-rental properties'
 
     def article_html_new(self):
         """Builds the html string to be emailed. Takes news articles scraped and
