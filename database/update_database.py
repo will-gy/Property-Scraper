@@ -61,7 +61,7 @@ class ManageDatabase:
 
         cursor.execute(
             f"""SELECT TIMESTAMP, PRICE, BEDS, LINK, ADDRESS, DESCRIPTION, IMAGE FROM {table_name} 
-            WHERE ID={house_id};"""
+            WHERE ID={house_id} ORDER BY TIMESTAMP DESC;"""
         )
         return cursor.fetchall()
 

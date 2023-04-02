@@ -37,7 +37,7 @@ def _gen_update_dict(house_data)-> Dict:
         'timestamp': house_data[0][0],
         'updated_price': updated_price,
         'old_price': old_price,
-        'price_change': ((old_price - updated_price)/old_price)*100,
+        'price_change': ((updated_price - old_price)/old_price)*100,
         'price_history': price_history,
         'bedroom': house_data[0][2],
         'link': house_data[0][3],
