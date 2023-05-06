@@ -1,0 +1,5 @@
+{
+    "url": "https://www.rightmove.co.uk/api/_search?locationIdentifier=POSTCODE^1245969&maxPrice=1750000&numberOfPropertiesPerPage=24&radius=0.25&sortType=6&index=0&viewType=LIST&channel=BUY&areaSizeUnit=sqft&currencyCode=GBP&isFetching=false&viewport=",
+    "table_name": "WimbledonQuarterMile",
+    "search_type": "buy"
+}
