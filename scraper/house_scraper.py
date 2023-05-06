@@ -15,8 +15,7 @@ class HouseScraper(ABC):
     # @abstractmethod
     # def get_page_list(self) -> List:
     #     pass
-    
+
     @abstractmethod
     def get_property_info(self):
         pass
-
