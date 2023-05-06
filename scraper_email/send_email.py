@@ -1,13 +1,12 @@
 import json
 import smtplib
+from email.message import EmailMessage
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from email.message import EmailMessage
-from typing import List
-# from scraper_email.gmail_info import GmailLogin
+
 
 class SendEmail:
-    def __init__(self, gmail_info, property_website):
+    def __init__(self, gmail_info: str, property_website: str, rent: bool) -> None:
         with open(gmail_info) as f:
             config = json.load(f)
             self._gmail_user = config.get('gmail_user')
@@ -20,39 +19,40 @@ class SendEmail:
         self.arcticle_new = ""
 
         self.property_website = property_website
+        self._rent = rent
 
     @property
-    def update_property(self)-> List:
+    def update_property(self)-> list:
         return self._update_property
 
     @update_property.setter
-    def update_property(self, value):
+    def update_property(self, value: list) -> None:
         self._update_property = value
 
     @property
-    def new_property(self)-> List:
+    def new_property(self)-> list:
         return self._new_property
 
     @new_property.setter
-    def new_property(self, value):
+    def new_property(self, value: list) -> None:
         self._new_property = value
-    
-    def send_email(self):
+
+    def send_email(self) -> None:
         """Sends the email containing articles to the list of recipients
 
         Args:
             html_msg (str): html str of email
-        """    
+        """
         msg = EmailMessage()
         msg.set_content("body of email")
 
         #Setup the MIME
         message = MIMEMultipart('alternative')
-    
+
         message['From'] = self._from_addr
         message['To'] = ", ".join(self._to_addr)
         message['Subject'] = 'New Properties found.'   #The subject line
-        
+
         #The body and the attachments for the mail
         message.attach(MIMEText(
             self.build_html(), 'html')
@@ -66,7 +66,7 @@ class SendEmail:
         session.quit()
         print('Mail Sent')
 
-    def article_html_updated(self):
+    def article_html_updated(self) -> None:
         """Builds the html string to be emailed. Takes news articles scraped and
         formats it into html
 
@@ -134,7 +134,7 @@ class SendEmail:
             # TODO: Implement for buying properties
             return 'Price change not implemented for non-rental properties'
 
-    def article_html_new(self):
+    def article_html_new(self) -> None:
         """Builds the html string to be emailed. Takes news articles scraped and
         formats it into html
 
@@ -151,6 +151,7 @@ class SendEmail:
         self.arcticle_new = self.arcticle_new + f'<h2>{self.property_website}</h2>'
         if not self._new_property:
             self.art = self.arcticle_new + f'<p>No New properties found</p>'
+
         for property_dict in self._new_property:
             timestamp = property_dict['timestamp']
             link = property_dict['link']
@@ -162,13 +163,24 @@ class SendEmail:
             self.arcticle_new = self.arcticle_new + (
                 f'<a href={link}><h3>{address}</h3><a>'
                 f'Updated: {timestamp} UTC'
-                f'<p>Price: £{price} PCM<p>'
+                f'<p>Price: {self._get_price_str(price)}<p>'
                 f'<img src="{image}" alt="Property Photo" style="width:476px;height:317px;">'
                 f'<p>{description}<br>'
                 f'<br>'
             )
 
-    def build_html(self):
+    def _get_price_str(self, price: float) -> str:
+        """Formats price into string
+
+        Args:
+            price (float): Price to be formatted
+
+        Returns:
+            str: Formatted price
+        """
+        return f'£{price:,} PCM' if self._rent else f'£{price:,}'
+
+    def build_html(self) -> str:
         """Base structure of html str
 
         Args:
@@ -195,10 +207,3 @@ class SendEmail:
         )
 
         return html
-
-### Example usage ###
-# send_email = SendEmail('Rightmove')
-
-# send_email.update_property = []
-# send_email.new_property = []
-# send_email.send_email()

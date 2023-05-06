@@ -1,19 +1,20 @@
+from typing import Tuple
+
 import sqlite3
-from typing import List
 
 class ManageDatabase:
-    def __init__(self, db_name) -> None:
+    def __init__(self, db_name: str) -> None:
         self._db_name = db_name
 
-    def create_db(self):
+    def create_db(self) -> None:
         sqlite3.connect(f"{self._db_name}.db")
 
-    def _connect_db(self):
+    def _connect_db(self) -> Tuple[sqlite3.Connection, sqlite3.Cursor]:
         connection_obj = sqlite3.connect(f"{self._db_name}.db")
         cursor = connection_obj.cursor()
         return connection_obj, cursor
 
-    def create_table(self, table_name):
+    def create_table(self, table_name: str) -> None:
         _, cursor = self._connect_db()
         table = (
             f"CREATE TABLE {table_name}"
@@ -29,7 +30,7 @@ class ManageDatabase:
             )
         cursor.execute(table)
 
-    def update_house(self, table_name, data):
+    def update_house(self, table_name: str, data: list) -> None:
         connection_obj, cursor = self._connect_db()
         for house in data:
             cursor.execute(
@@ -40,7 +41,7 @@ class ManageDatabase:
             )
         connection_obj.commit()
 
-    def get_record_n_hours(self, table_name, hour=24)-> List:
+    def get_record_n_hours(self, table_name: str, hour: int=24)-> list:
         _, cursor = self._connect_db()
 
         cursor.execute(
@@ -49,7 +50,7 @@ class ManageDatabase:
         )
         return cursor.fetchall()
 
-    def get_record(self, table_name, house_id):
+    def get_record(self, table_name: str, house_id: int):
         _, cursor = self._connect_db()
 
         cursor.execute(

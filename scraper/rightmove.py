@@ -34,7 +34,7 @@ class RightMoveScraper(HouseScraper):
         return f"{url[0]}&index={24*page_num}{url[1]}"
 
     @staticmethod
-    def _get_pcm(price: dict) -> float:
+    def _get_price(price: dict) -> float:
         if price.get('frequency') == 'weekly':
             return round((price.get('amount', 0) *52) / 12, 2)
         return price.get('amount', 0)
@@ -43,7 +43,7 @@ class RightMoveScraper(HouseScraper):
         try:
             return {
                 'id': int(listing.get('id')),
-                'price': self._get_pcm(listing.get('price')),
+                'price': self._get_price(listing.get('price')),
                 'link': f"https://www.rightmove.co.uk{listing.get('propertyUrl')}",
                 'beds': listing.get('bedrooms'),
                 'address': listing.get('displayAddress'),
@@ -55,7 +55,7 @@ class RightMoveScraper(HouseScraper):
             return None
 
 
-    def get_property_info(self):
+    def get_property_info(self) -> None:
         super().get_property_info()
 
         last_page_num = self._page_total()
