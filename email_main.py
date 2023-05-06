@@ -47,7 +47,8 @@ def _gen_new_dict(house_data: list) -> dict:
         'link': house_data[0][3],
         'address': house_data[0][4],
         'description': house_data[0][5],
-        'image': house_data[0][6]
+        'image': house_data[0][6],
+        'distance': house_data[0][7],
     }
 
 def _gen_update_dict(house_data: list) -> dict:
@@ -65,7 +66,8 @@ def _gen_update_dict(house_data: list) -> dict:
         'link': house_data[0][3],
         'address': house_data[0][4],
         'description': house_data[0][5],
-        'image': house_data[0][6]
+        'image': house_data[0][6],
+        'distance': house_data[0][7],
     }
 
 if __name__ == '__main__':

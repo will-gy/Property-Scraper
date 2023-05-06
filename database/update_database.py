@@ -26,6 +26,9 @@ class ManageDatabase:
             f"ADDRESS TEXT,"
             f"DESCRIPTION TEXT,"
             f"IMAGE TEXT,"
+            f"LATTITUDE FLOAT,"
+            f"LONGITUDE FLOAT,"
+            f"DISTANCE FLOAT,"
             f"UNIQUE(ID,PRICE))"
             )
         cursor.execute(table)
@@ -35,8 +38,8 @@ class ManageDatabase:
         for house in data:
             cursor.execute(
                 (f"INSERT OR IGNORE INTO {table_name} "
-                f"(ID, PRICE, BEDS, LINK, ADDRESS, DESCRIPTION, IMAGE)"
-                f" VALUES (:id, :price, :beds, :link, :address, :description, :image);"),
+                f"(ID, PRICE, BEDS, LINK, ADDRESS, DESCRIPTION, IMAGE, LATTITUDE, LONGITUDE, DISTANCE)"
+                f" VALUES (:id, :price, :beds, :link, :address, :description, :image, :latitude, :longitude, :distance);"),
                 house
             )
         connection_obj.commit()
@@ -54,7 +57,7 @@ class ManageDatabase:
         _, cursor = self._connect_db()
 
         cursor.execute(
-            f"""SELECT TIMESTAMP, PRICE, BEDS, LINK, ADDRESS, DESCRIPTION, IMAGE FROM {table_name} 
+            f"""SELECT TIMESTAMP, PRICE, BEDS, LINK, ADDRESS, DESCRIPTION, IMAGE, DISTANCE FROM {table_name} 
             WHERE ID={house_id} ORDER BY TIMESTAMP DESC;"""
         )
         return cursor.fetchall()

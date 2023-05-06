@@ -48,7 +48,10 @@ class RightMoveScraper(HouseScraper):
                 'beds': listing.get('bedrooms'),
                 'address': listing.get('displayAddress'),
                 'description': listing.get('summary'),
-                'image': listing.get('propertyImages').get('mainImageSrc')
+                'image': listing.get('propertyImages').get('mainImageSrc'),
+                'latitude': listing.get('location').get('latitude'),
+                'longitude': listing.get('location').get('longitude'),
+                'distance': listing.get('distance') if listing.get('distance') else 'N/A',
                 }
         except ValueError as e:
             print(f"could not find property: {e}")

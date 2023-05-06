@@ -93,6 +93,7 @@ class SendEmail:
             price_change = property_dict['price_change']
             price = property_dict['updated_price']
             old_price = property_dict['old_price']
+            distance = property_dict['distance']
             price_history  = [
                 f'<li>Time: {x[0]} UTC Price: £{x[1]}</li>' for x in property_dict['price_history']
                 ]
@@ -104,6 +105,7 @@ class SendEmail:
                 f'<ul>'
                 f'{"".join(price_history)}'
                 f'</ul>'
+                f'<p>Distance: {distance} miles</p>'
                 f'<img src="{image}" alt="Property Photo" style="width:476px;height:317px;">'
                 f'<p>{description}<br>'
                 f'<br>'
@@ -159,11 +161,13 @@ class SendEmail:
             image = property_dict['image']
             description = property_dict['description']
             price = property_dict['price']
+            distance = property_dict['distance']
 
             self.arcticle_new = self.arcticle_new + (
                 f'<a href={link}><h3>{address}</h3><a>'
                 f'Updated: {timestamp} UTC'
                 f'<p>Price: {self._get_price_str(price)}<p>'
+                f'<p>Distance: {distance} miles</p>'
                 f'<img src="{image}" alt="Property Photo" style="width:476px;height:317px;">'
                 f'<p>{description}<br>'
                 f'<br>'
