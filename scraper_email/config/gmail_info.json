@@ -1,0 +1,10 @@
+{
+    "gmail_user": "gmail_address",
+    "from_addr": "Propety Web Scraper <{gmail_user}>",
+    "to_addr": ["to_addr"],
+    "bcc_addr": ["bcc_addr"],
+    "gmail_password": "gmail_password",
+    "table_name": "db_table_name",
+    "search_type": "rent",
+    "time_period_hours": 24
+}
