@@ -13,7 +13,7 @@ class RightMoveScraper(HouseScraper):
     @staticmethod
     def __get_page(url) -> dict:
         try:
-            page_html = requests.get(url)
+            page_html = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'})
             return json.loads(page_html.content)
         except ValueError as e:
             print(e)
