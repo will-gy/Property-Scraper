@@ -15,13 +15,14 @@ parser.add_argument(
 args = parser.parse_args()
 
 
-def load_config(config_file: str) -> Tuple[str, str, int]:
+def load_config(config_file: str) -> Tuple[str, str, int, str]:
     with open(config_file) as f:
         config = json.load(f)
         table_name = config.get('table_name', '')
         search_type = config.get('search_type', ''),
         time_period = config.get('time_period_hours', 24)
-    return table_name, search_type, time_period
+        subject_tag = config.get('subject_tag', '')
+    return table_name, search_type, time_period, subject_tag
 
 
 def format_email_data(house_ids: list, database_table: str) -> Tuple[list, list]:
@@ -70,9 +71,16 @@ def _gen_update_dict(house_data: list) -> dict:
         'distance': house_data[0][7],
     }
 
+def _gen_subject(subject_tag: str, new_property: list, updated_property: list) -> str:
+    new_count = len(new_property) if new_property else 0
+    update_count = len(updated_property) if updated_property else 0
+    return f'{subject_tag} Property Scraper: {new_count} New & {update_count} Price Updates'
+
 if __name__ == '__main__':
     # Load config
-    database_table, search_type, time_period = load_config(args.config_path)
+    # TODO: Not a fan of loading the config twice, and passing around different variables.
+    #       Need to refactor this.
+    database_table, search_type, time_period, subject_tag = load_config(args.config_path)
     house_ids = manage_database.get_record_n_hours(database_table, hour=time_period)
     new_property, updated_property = format_email_data(house_ids, database_table)
 
@@ -81,4 +89,5 @@ if __name__ == '__main__':
         )
     send_email.update_property = updated_property
     send_email.new_property = new_property
+    send_email.subject = _gen_subject(subject_tag, new_property, updated_property)
     send_email.send_email()
