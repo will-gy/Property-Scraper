@@ -37,6 +37,16 @@ class SendEmail:
     def new_property(self, value: list) -> None:
         self._new_property = value
 
+    @property
+    def subject(self) -> str:
+        if self._subject is None:
+            return 'Property Scraper'
+        return self._subject
+
+    @subject.setter
+    def subject(self, value: str) -> None:
+        self._subject = value
+
     def send_email(self) -> None:
         """Sends the email containing articles to the list of recipients
 
@@ -51,7 +61,7 @@ class SendEmail:
 
         message['From'] = self._from_addr
         message['To'] = ", ".join(self._to_addr)
-        message['Subject'] = 'New Properties found.'   #The subject line
+        message['Subject'] = self.subject #The subject line
 
         #The body and the attachments for the mail
         message.attach(MIMEText(
@@ -69,6 +79,9 @@ class SendEmail:
     def article_html_updated(self) -> None:
         """Builds the html string to be emailed. Takes news articles scraped and
         formats it into html
+        
+        TODO: This logic should not be in the SendEmail class, add separate
+        class for generating email html & processing data.
 
         Args:
             news_provider (str): The news source scraped from
@@ -139,6 +152,9 @@ class SendEmail:
     def article_html_new(self) -> None:
         """Builds the html string to be emailed. Takes news articles scraped and
         formats it into html
+        
+        TODO: This logic should not be in the SendEmail class, add separate
+        class for generating email html & processing data.
 
         Args:
             news_provider (str): The news source scraped from
