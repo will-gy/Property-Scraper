@@ -1,0 +1,15 @@
+{
+    "area": "ExampleArea",
+    "channel": "rent",
+    "search_url": "https://www.rightmove.co.uk/property-to-rent/find.html?locationIdentifier=STATION%5E1234&minBedrooms=1&maxPrice=2000&numberOfPropertiesPerPage=24&radius=1.0&sortType=6&index=0&includeLetAgreed=false&viewType=LIST&channel=RENT&areaSizeUnit=sqft&currencyCode=GBP&isFetching=false&viewport=",
+    "email": {
+        "subject_tag": "Example Area",
+        "to_addr": [],
+        "bcc_addr": ["you@example.com"],
+        "time_period_hours": 24,
+        "enabled": true
+    },
+    "scraper": {
+        "enabled": true
+    }
+}

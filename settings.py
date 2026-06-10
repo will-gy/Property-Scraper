@@ -60,10 +60,17 @@ class LoggingSettings(BaseSettings):
 
 
 class StorageSettings(BaseSettings):
-    """On-disk locations. DB_PATH should point outside the repo in prod."""
+    """On-disk locations. In prod, point these OUTSIDE the repo so a deploy's
+    ``git reset --hard`` can't touch them and private files never get committed.
+
+    CONFIG_DIR holds the per-location configs (which contain your email address
+    and the areas you're searching), so it is kept out of the repo just like the
+    secrets in ``.env``.
+    """
     model_config = SettingsConfigDict(**_BASE_CONFIG)
 
     db_path: Path = _ROOT / "database" / "rightmove.db"
+    config_dir: Path = _ROOT / "config"
 
 
 @lru_cache

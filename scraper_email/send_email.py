@@ -1,4 +1,3 @@
-import json
 import logging
 import smtplib
 from email.message import EmailMessage
@@ -11,16 +10,20 @@ logger = logging.getLogger(__name__)
 
 
 class SendEmail:
-    def __init__(self, gmail_info: str, property_website: str, rent: bool) -> None:
+    def __init__(
+        self,
+        to_addr: list[str],
+        bcc_addr: list[str],
+        property_website: str = "Rightmove",
+        rent: bool = True,
+    ) -> None:
         settings = get_settings()
         self._gmail_user = settings.gmail_user
         self._gmail_password = settings.gmail_password
         self._from_addr = settings.gmail_from_addr
 
-        with open(gmail_info) as f:
-            config = json.load(f)
-            self._bcc_addr = config.get('bcc_addr', [])
-            self._to_addr = config.get('to_addr', [])
+        self._to_addr = to_addr or []
+        self._bcc_addr = bcc_addr or []
 
         self.article_updated = ""
         self.article_new = ""

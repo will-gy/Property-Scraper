@@ -8,6 +8,9 @@ __pycache__/
 .env.*
 !.env.example
 
+# Private per-location configs (contain email + areas being searched)
+config/
+
 # Editor
 .vscode/
 
