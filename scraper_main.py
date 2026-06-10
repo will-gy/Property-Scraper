@@ -1,17 +1,13 @@
 import argparse
 import json
+import logging
 from typing import Tuple
 
 from app import manage_database
+from logging_setup import setup_logging
 from scraper.rightmove import RightMoveScraper
 
-# Parse cmd line args
-parser = argparse.ArgumentParser(description='Scrape rightmove')
-parser.add_argument(
-    '--config_path', type=str, help='config file path to load',
-    default='scraper/config/scraper_config.json'
-    )
-args = parser.parse_args()
+logger = logging.getLogger(__name__)
 
 
 def load_config(config_file: str) -> Tuple[str, str]:
@@ -23,17 +19,19 @@ def load_config(config_file: str) -> Tuple[str, str]:
 
 
 if __name__ == '__main__':
-    # Load config
+    setup_logging()
+
+    parser = argparse.ArgumentParser(description='Scrape rightmove')
+    parser.add_argument(
+        '--config_path', type=str, help='config file path to load',
+        default='scraper/config/scraper_config.json'
+    )
+    args = parser.parse_args()
+
     url, database_table = load_config(args.config_path)
     rightmove_scraper = RightMoveScraper(url)
-    # Scrape rightmove
     data = rightmove_scraper.run()
-    try:
-        manage_database.create_db()
-    except:
-        pass
-    try:
-        manage_database.create_table(database_table)
-    except:
-        pass
+
+    manage_database.create_table(database_table)
     manage_database.update_house(database_table, data)
+    logger.info("Scraped %s listings into %s", len(data), database_table)

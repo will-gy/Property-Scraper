@@ -1,22 +1,29 @@
 import json
+import logging
 import smtplib
 from email.message import EmailMessage
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
+from settings import get_settings
+
+logger = logging.getLogger(__name__)
+
 
 class SendEmail:
     def __init__(self, gmail_info: str, property_website: str, rent: bool) -> None:
+        settings = get_settings()
+        self._gmail_user = settings.gmail_user
+        self._gmail_password = settings.gmail_password
+        self._from_addr = settings.gmail_from_addr
+
         with open(gmail_info) as f:
             config = json.load(f)
-            self._gmail_user = config.get('gmail_user')
-            self._gmail_password = config.get('gmail_password')
-            self._from_addr = config.get('from_addr')
-            self._bcc_addr = config.get('bcc_addr')
-            self._to_addr = config.get('to_addr')
+            self._bcc_addr = config.get('bcc_addr', [])
+            self._to_addr = config.get('to_addr', [])
 
         self.article_updated = ""
-        self.arcticle_new = ""
+        self.article_new = ""
 
         self.property_website = property_website
         self._rent = rent
@@ -74,7 +81,7 @@ class SendEmail:
         text = message.as_string()
         session.sendmail(self._from_addr, self._to_addr + self._bcc_addr, text)
         session.quit()
-        print('Mail Sent')
+        logger.info('Mail sent to %s recipients', len(self._to_addr + self._bcc_addr))
 
     def article_html_updated(self) -> None:
         """Builds the html string to be emailed. Takes news articles scraped and
@@ -166,9 +173,9 @@ class SendEmail:
         Returns:
             [str]: Data formatted in html
         """
-        self.arcticle_new = self.arcticle_new + f'<h2>{self.property_website}</h2>'
+        self.article_new = self.article_new + f'<h2>{self.property_website}</h2>'
         if not self._new_property:
-            self.art = self.arcticle_new + f'<p>No New properties found</p>'
+            self.article_new = self.article_new + f'<p>No New properties found</p>'
 
         for property_dict in self._new_property:
             timestamp = property_dict['timestamp']
@@ -179,8 +186,8 @@ class SendEmail:
             price = property_dict['price']
             distance = property_dict['distance']
 
-            self.arcticle_new = self.arcticle_new + (
-                f'<a href={link}><h3>{address}</h3><a>'
+            self.article_new = self.article_new + (
+                f'<a href={link}><h3>{address}</h3></a>'
                 f'Updated: {timestamp} UTC'
                 f'<p>Price: {self._get_price_str(price)}<p>'
                 f'<p>Distance: {distance} miles</p>'
@@ -218,10 +225,10 @@ class SendEmail:
         f'<html>'
             f'<head></head>'
             f'<body>'
-                f'<h2>Propety price changes</h2>'
+                f'<h2>Property price changes</h2>'
                 f'{self.article_updated}'
                 f'<h2>New Property</h2>'
-                f'{self.arcticle_new}'
+                f'{self.article_new}'
             f'</body>'
         f'</html>'
         )
