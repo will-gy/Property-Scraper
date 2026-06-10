@@ -1,0 +1,13 @@
+# Cron schedule installed on the Raspberry Pi by pi-deploy (lib/apply_crons.py).
+# ${PROJECT_DIR} is expanded to the deployed repo path; commands use the venv
+# python created by `uv sync` on deploy.
+#
+# APP_ENV=prod is set inline so cron's /bin/sh exports it for the run, which makes
+# settings.py load .env + .env.prod (paths pointing outside the repo). This keeps
+# the environment selection self-contained in the repo — no Pi-side shell config.
+
+- schedule: "0 8-18 * * *"
+  command: "APP_ENV=prod ${PROJECT_DIR}/.venv/bin/python ${PROJECT_DIR}/run_all.py --mode scrape"
+
+- schedule: "30 9 * * *"
+  command: "APP_ENV=prod ${PROJECT_DIR}/.venv/bin/python ${PROJECT_DIR}/run_all.py --mode email"
