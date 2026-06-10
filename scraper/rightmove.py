@@ -1,8 +1,13 @@
 import json
+import re
 
 import requests
 
 from scraper.house_scraper import HouseScraper
+
+_HEADERS = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+}
 
 
 class RightMoveScraper(HouseScraper):
@@ -13,9 +18,17 @@ class RightMoveScraper(HouseScraper):
     @staticmethod
     def __get_page(url) -> dict:
         try:
-            page_html = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'})
-            return json.loads(page_html.content)
-        except ValueError as e:
+            response = requests.get(url, headers=_HEADERS)
+            match = re.search(
+                r'<script id="__NEXT_DATA__" type="application/json">(.*?)</script>',
+                response.text,
+                re.DOTALL
+            )
+            if not match:
+                return {}
+            data = json.loads(match.group(1))
+            return data['props']['pageProps']['searchResults']
+        except (ValueError, KeyError) as e:
             print(e)
             return {}
 
