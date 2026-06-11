@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Private per-location configs (contain email + areas being searched)
+config/
+
+# Editor
+.vscode/
+
+# Data & logs
+*.db
+*.db-journal
+database/*.backup-*.db
+logs/
+*.log

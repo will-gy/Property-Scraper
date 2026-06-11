@@ -1,63 +1,73 @@
-from typing import Tuple
-
+import logging
 import sqlite3
+from contextlib import contextmanager
+from pathlib import Path
+
+logger = logging.getLogger(__name__)
+
 
 class ManageDatabase:
-    def __init__(self, db_name: str) -> None:
-        self._db_name = db_name
+    def __init__(self, db_path) -> None:
+        self._db_path = str(db_path)
+        Path(self._db_path).parent.mkdir(parents=True, exist_ok=True)
 
-    def create_db(self) -> None:
-        sqlite3.connect(f"{self._db_name}.db")
-
-    def _connect_db(self) -> Tuple[sqlite3.Connection, sqlite3.Cursor]:
-        connection_obj = sqlite3.connect(f"{self._db_name}.db")
-        cursor = connection_obj.cursor()
-        return connection_obj, cursor
+    @contextmanager
+    def _cursor(self):
+        """Yield a cursor, committing on success and always closing the connection."""
+        connection = sqlite3.connect(self._db_path)
+        connection.row_factory = sqlite3.Row
+        try:
+            cursor = connection.cursor()
+            yield cursor
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            connection.close()
 
     def create_table(self, table_name: str) -> None:
-        _, cursor = self._connect_db()
-        table = (
-            f"CREATE TABLE {table_name}"
-            f"(ID INT NOT NULL,"
-            f"TIMESTAMP DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,"
-            f"PRICE FLOAT NOT NULL,"
-            f"BEDS TEXT,"
-            f"LINK TEXT,"
-            f"ADDRESS TEXT,"
-            f"DESCRIPTION TEXT,"
-            f"IMAGE TEXT,"
-            f"LATTITUDE FLOAT,"
-            f"LONGITUDE FLOAT,"
-            f"DISTANCE FLOAT,"
-            f"UNIQUE(ID,PRICE))"
+        with self._cursor() as cursor:
+            cursor.execute(
+                f'CREATE TABLE IF NOT EXISTS "{table_name}" ('
+                "ID INT NOT NULL,"
+                "TIMESTAMP DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,"
+                "PRICE FLOAT NOT NULL,"
+                "BEDS TEXT,"
+                "LINK TEXT,"
+                "ADDRESS TEXT,"
+                "DESCRIPTION TEXT,"
+                "IMAGE TEXT,"
+                "LATTITUDE FLOAT,"
+                "LONGITUDE FLOAT,"
+                "DISTANCE FLOAT,"
+                "UNIQUE(ID,PRICE))"
             )
-        cursor.execute(table)
 
     def update_house(self, table_name: str, data: list) -> None:
-        connection_obj, cursor = self._connect_db()
-        for house in data:
-            cursor.execute(
-                (f"INSERT OR IGNORE INTO {table_name} "
-                f"(ID, PRICE, BEDS, LINK, ADDRESS, DESCRIPTION, IMAGE, LATTITUDE, LONGITUDE, DISTANCE)"
-                f" VALUES (:id, :price, :beds, :link, :address, :description, :image, :latitude, :longitude, :distance);"),
-                house
+        with self._cursor() as cursor:
+            cursor.executemany(
+                f'INSERT OR IGNORE INTO "{table_name}" '
+                "(ID, PRICE, BEDS, LINK, ADDRESS, DESCRIPTION, IMAGE, LATTITUDE, LONGITUDE, DISTANCE)"
+                " VALUES (:id, :price, :beds, :link, :address, :description, :image,"
+                " :latitude, :longitude, :distance);",
+                data,
             )
-        connection_obj.commit()
 
-    def get_record_n_hours(self, table_name: str, hour: int=24)-> list:
-        _, cursor = self._connect_db()
+    def get_record_n_hours(self, table_name: str, hour: int = 24) -> list:
+        with self._cursor() as cursor:
+            cursor.execute(
+                f'SELECT DISTINCT ID FROM "{table_name}" '
+                "WHERE TIMESTAMP >= datetime('now', ?) AND TIMESTAMP < datetime('now');",
+                (f"-{int(hour)} hours",),
+            )
+            return cursor.fetchall()
 
-        cursor.execute(
-            f"""SELECT DISTINCT ID FROM {table_name}
-            WHERE TIMESTAMP >= datetime('now', '-{hour} hours') AND TIMESTAMP < datetime('now');"""
-        )
-        return cursor.fetchall()
-
-    def get_record(self, table_name: str, house_id: int):
-        _, cursor = self._connect_db()
-
-        cursor.execute(
-            f"""SELECT TIMESTAMP, PRICE, BEDS, LINK, ADDRESS, DESCRIPTION, IMAGE, DISTANCE FROM {table_name} 
-            WHERE ID={house_id} ORDER BY TIMESTAMP DESC;"""
-        )
-        return cursor.fetchall()
+    def get_record(self, table_name: str, house_id: int) -> list:
+        with self._cursor() as cursor:
+            cursor.execute(
+                "SELECT TIMESTAMP, PRICE, BEDS, LINK, ADDRESS, DESCRIPTION, IMAGE, DISTANCE "
+                f'FROM "{table_name}" WHERE ID=? ORDER BY TIMESTAMP DESC;',
+                (house_id,),
+            )
+            return cursor.fetchall()
