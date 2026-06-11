@@ -109,10 +109,26 @@ or stray keys fail immediately.
 - `channel`: `rent` or `buy`.
 - `search_url`: a Rightmove results URL — must contain `&index=0` (used for
   pagination). Build one by running the search on rightmove.co.uk and copying the
-  URL, or look up a `locationIdentifier` via the autocomplete endpoint:
-  `https://los.rightmove.co.uk/typeahead?query=clapham` → combine `type` and `id`
-  as `TYPE^ID` (e.g. `REGION^85282`, URL-encoded `%5E`).
+  URL, or use the bundled helper to resolve a `locationIdentifier` and scaffold a
+  config (see below).
 - `time_period_hours`: how far back the email looks for new/changed listings.
+
+### Finding a location / scaffolding a config
+
+`find_area.py` resolves a place name to a `locationIdentifier` via Rightmove's
+autocomplete endpoint, and can write a starter config:
+
+```bash
+# List matching locations and their identifiers
+uv run python find_area.py "clapham"
+
+# Scaffold config/ClaphamSouth.json from the 1st match, as a rent search
+uv run python find_area.py "clapham south" --scaffold --pick 1 \
+    --area ClaphamSouth --channel rent
+```
+
+The scaffolded file is written to `CONFIG_DIR` with a sensible default search URL
+(no price/bed filters) — edit it to add recipients and filters.
 
 ## Deployment (Raspberry Pi via pi-deploy)
 
