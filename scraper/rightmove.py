@@ -13,12 +13,63 @@ logger = logging.getLogger(__name__)
 _MIN_DELAY = 2.0
 _MAX_DELAY = 5.0
 
+_MAX_RETRIES = 4
+_BACKOFF_BASE = 2.0
+_RETRY_STATUS = {429, 500, 502, 503, 504}
+
+
+def _backoff_seconds(attempt: int) -> float:
+    """Exponential backoff with jitter for retry ``attempt`` (0-based)."""
+    return _BACKOFF_BASE * (2 ** attempt) + random.uniform(0, 1)
+
+
+def _retry_after_seconds(response) -> float | None:
+    """Honour a numeric ``Retry-After`` header if present."""
+    value = response.headers.get("Retry-After")
+    if not value:
+        return None
+    try:
+        return float(value)
+    except ValueError:
+        return None
+
 
 class RightMoveScraper(HouseScraper):
+    def __init__(self, url: str, max_pages: int | None = None) -> None:
+        super().__init__(url)
+        self._max_pages = max_pages
+
+    def _fetch(self, url: str) -> requests.Response:
+        """GET with exponential backoff on 429/5xx and transient network errors."""
+        for attempt in range(_MAX_RETRIES + 1):
+            try:
+                response = self._session.get(url, timeout=30)
+            except requests.RequestException as e:
+                if attempt >= _MAX_RETRIES:
+                    raise
+                wait = _backoff_seconds(attempt)
+                logger.warning(
+                    "Request error for %s (%s); retry %d/%d in %.1fs",
+                    url, e, attempt + 1, _MAX_RETRIES, wait,
+                )
+                time.sleep(wait)
+                continue
+
+            if response.status_code in _RETRY_STATUS and attempt < _MAX_RETRIES:
+                wait = _retry_after_seconds(response) or _backoff_seconds(attempt)
+                logger.warning(
+                    "HTTP %s for %s; retry %d/%d in %.1fs",
+                    response.status_code, url, attempt + 1, _MAX_RETRIES, wait,
+                )
+                time.sleep(wait)
+                continue
+
+            return response
+
     def _get_page(self, url: str) -> dict:
         """Fetch a search page and return its ``searchResults`` payload."""
         try:
-            response = self._session.get(url, timeout=30)
+            response = self._fetch(url)
             match = re.search(
                 r'<script id="__NEXT_DATA__" type="application/json">(.*?)</script>',
                 response.text,
@@ -72,7 +123,7 @@ class RightMoveScraper(HouseScraper):
                 "image": images.get("mainImageSrc"),
                 "latitude": location.get("latitude"),
                 "longitude": location.get("longitude"),
-                "distance": listing.get("distance") if listing.get("distance") else "N/A",
+                "distance": listing.get("distance"),
             }
         except (ValueError, TypeError, AttributeError) as e:
             logger.warning("Could not parse property: %s", e)
@@ -82,6 +133,8 @@ class RightMoveScraper(HouseScraper):
         super().get_property_info()
 
         last_page_num = self._page_total()
+        if self._max_pages is not None:
+            last_page_num = min(int(last_page_num), self._max_pages)
 
         for i in range(0, int(last_page_num)):
             if i > 0:

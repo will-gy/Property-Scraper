@@ -10,6 +10,7 @@ from dataclasses import dataclass
 
 from config_models import Channel, LocationConfig
 from database.update_database import ManageDatabase
+from filters import passes_filters
 from scraper.rightmove import RightMoveScraper
 from scraper_email.send_email import SendEmail
 
@@ -33,11 +34,10 @@ class EmailResult:
 
 
 def scrape_location(config: LocationConfig, db: ManageDatabase) -> ScrapeResult:
-    """Scrape one location and persist its listings."""
+    """Scrape one location (whole market) and persist its listings."""
     logger.info("Scraping %s", config.area)
-    listings = RightMoveScraper(config.search_url).run()
-    db.create_table(config.table_name)
-    db.update_house(config.table_name, listings)
+    listings = RightMoveScraper(config.search_url, max_pages=config.scraper.max_pages).run()
+    db.insert_listings(config.area, config.channel.value, listings)
     logger.info("Scraped %d listings for %s", len(listings), config.area)
     return ScrapeResult(area=config.area, scraped=len(listings))
 
@@ -46,10 +46,8 @@ def email_location(
     config: LocationConfig, db: ManageDatabase, dry_run: bool = False
 ) -> EmailResult:
     """Build and (unless ``dry_run``) send the update email for one location."""
-    changed_ids = db.get_record_n_hours(
-        config.table_name, hour=config.email.time_period_hours
-    )
-    new_props, updated_props = _split_new_and_updated(db, config.table_name, changed_ids)
+    changed_ids = db.get_changed_ids(config.area, hours=config.email.time_period_hours)
+    new_props, updated_props = _split_new_and_updated(db, config, changed_ids)
 
     email = SendEmail(
         to_addr=config.email.to_addr,
@@ -80,12 +78,14 @@ def email_location(
 
 
 def _split_new_and_updated(
-    db: ManageDatabase, table_name: str, changed_ids: list[sqlite3.Row]
+    db: ManageDatabase, config: LocationConfig, changed_ids: list[int]
 ) -> tuple[list[dict], list[dict]]:
     new_house: list[dict] = []
     updated_house: list[dict] = []
-    for row in changed_ids:
-        history = db.get_record(table_name, row["ID"])
+    for listing_id in changed_ids:
+        history = db.get_listing_history(config.area, listing_id)
+        if not history or not passes_filters(history[0], config.filters):
+            continue
         if len(history) > 1:
             updated_house.append(_updated_dict(history))
         else:
@@ -93,36 +93,40 @@ def _split_new_and_updated(
     return new_house, updated_house
 
 
+def _display_distance(value) -> str | float:
+    return value if value is not None else "N/A"
+
+
 def _new_dict(history: list[sqlite3.Row]) -> dict:
     latest = history[0]
     return {
-        "timestamp": latest["TIMESTAMP"],
-        "price": latest["PRICE"],
-        "bedroom": latest["BEDS"],
-        "link": latest["LINK"],
-        "address": latest["ADDRESS"],
-        "description": latest["DESCRIPTION"],
-        "image": latest["IMAGE"],
-        "distance": latest["DISTANCE"],
+        "timestamp": latest["timestamp"],
+        "price": latest["price"],
+        "bedroom": latest["beds"],
+        "link": latest["link"],
+        "address": latest["address"],
+        "description": latest["description"],
+        "image": latest["image"],
+        "distance": _display_distance(latest["distance"]),
     }
 
 
 def _updated_dict(history: list[sqlite3.Row]) -> dict:
     latest, previous = history[0], history[1]
-    updated_price = latest["PRICE"]
-    old_price = previous["PRICE"]
+    updated_price = latest["price"]
+    old_price = previous["price"]
     return {
-        "timestamp": latest["TIMESTAMP"],
+        "timestamp": latest["timestamp"],
         "updated_price": updated_price,
         "old_price": old_price,
         "price_change": ((updated_price - old_price) / old_price) * 100,
-        "price_history": [(row["TIMESTAMP"], row["PRICE"]) for row in history],
-        "bedroom": latest["BEDS"],
-        "link": latest["LINK"],
-        "address": latest["ADDRESS"],
-        "description": latest["DESCRIPTION"],
-        "image": latest["IMAGE"],
-        "distance": latest["DISTANCE"],
+        "price_history": [(row["timestamp"], row["price"]) for row in history],
+        "bedroom": latest["beds"],
+        "link": latest["link"],
+        "address": latest["address"],
+        "description": latest["description"],
+        "image": latest["image"],
+        "distance": _display_distance(latest["distance"]),
     }
 
 
