@@ -38,20 +38,27 @@
 {% macro listing_card(l, rent) %}
   <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border:1px solid #e6e8ef;border-radius:12px;overflow:hidden;margin-bottom:16px;">
     {% if l.image %}
-    <tr><td style="padding:0;"><img src="{{ l.image }}" width="600" style="display:block;width:100%;height:auto;"></td></tr>
+    <tr><td style="padding:0;"><a href="{{ l.link }}" style="text-decoration:none;"><img src="{{ l.image }}" width="600" style="display:block;width:100%;height:auto;border:0;"></a></td></tr>
     {% endif %}
     <tr><td style="padding:16px;">
-      <div style="font-size:22px;font-weight:bold;color:#1a1a2e;">
-        {{ l.price | price(rent) }}
-        {% if l.is_update and l.old_price %}
-          <span style="font-size:14px;color:#9aa0b5;text-decoration:line-through;font-weight:normal;">{{ l.old_price | gbp }}</span>
-          {% if l.price_change_pct is not none %}<span style="font-size:14px;color:{{ '#0f7a4d' if l.price_change_pct < 0 else '#c2410c' }};font-weight:bold;">{{ l.price_change_pct | pct }}</span>{% endif %}
-        {% endif %}
-      </div>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+        <td valign="top" style="font-size:22px;font-weight:bold;color:#1a1a2e;">
+          <a href="{{ l.link }}" style="color:#1a1a2e;text-decoration:none;">{{ l.price | price(rent) }}</a>
+          {% if l.is_update and l.old_price %}
+            <span style="font-size:14px;color:#9aa0b5;text-decoration:line-through;font-weight:normal;">{{ l.old_price | gbp }}</span>
+            {% if l.price_change_pct is not none %}<span style="font-size:14px;color:{{ '#0f7a4d' if l.price_change_pct < 0 else '#c2410c' }};font-weight:bold;">{{ l.price_change_pct | pct }}</span>{% endif %}
+          {% endif %}
+        </td>
+        <td align="right" valign="top" style="white-space:nowrap;padding-left:8px;">
+          <span style="display:inline-block;background:{{ l.deal_band.bg }};color:{{ l.deal_band.fg }};font-size:13px;font-weight:bold;padding:6px 12px;border-radius:14px;">{{ l.deal_score }} &middot; {{ l.deal_band.label }}</span>
+        </td>
+      </tr></table>
 
       <div style="margin-top:8px;">
         {% if l.just_reduced %}{{ pill('💷 Just reduced', '#c2410c', '#fdeee3') }}{% endif %}
         {% if l.just_listed %}{{ pill('🟢 Just listed', '#0f7a4d', '#e3f5ec') }}{% endif %}
+        {% if l.has_garden %}{{ pill('🌳 Garden', '#0f7a4d', '#e3f5ec') }}{% endif %}
+        {% if l.large_space %}{{ pill('📐 Large space', '#1d4ed8', '#e8f0fd') }}{% endif %}
         {% if l.cheapest_30d %}{{ pill('🔥 Cheapest in 30d', '#b45309', '#fef3e2') }}{% endif %}
         {% if l.value %}{{ value_badge(l.value) }}{% endif %}
       </div>
@@ -68,7 +75,7 @@
       {% endif %}
 
       <div style="font-size:14px;color:#4a4f60;margin-top:10px;">
-        {{ l.beds }} bed{% if l.bathrooms %} &middot; {{ l.bathrooms }} bath{% endif %}{% if l.property_type %} &middot; {{ l.property_type }}{% endif %}{% if l.sqft %} &middot; {{ l.sqft }} sq ft{% endif %}{% if l.price_per_bed %} &middot; £{{ l.price_per_bed | round | int }}/bed{% endif %}
+        {{ l.beds }} bed{% if l.bathrooms %} &middot; {{ l.bathrooms }} bath{% endif %}{% if l.property_type %} &middot; {{ l.property_type }}{% endif %}{% if l.sqft %} &middot; {{ l.sqft }} sq ft{% if l.large_space %} ({{ l.large_space }}% larger than avg){% endif %}{% endif %}{% if l.price_per_bed %} &middot; £{{ l.price_per_bed | round | int }}/bed{% endif %}
       </div>
 
       <div style="font-size:13px;color:#6b7280;margin-top:5px;">
@@ -197,7 +204,7 @@
     {# new listings #}
     <tr><td class="px" style="padding:22px 16px 0;">
       <div style="font-size:18px;font-weight:bold;">✨ New listings ({{ new_listings | length }})</div>
-      <div style="font-size:12px;color:#9aa0b5;margin-top:3px;">Sorted best-deal first (value, freshness & reductions). Value compares each price to the area median for the same bedroom count.</div>
+      <div style="font-size:12px;color:#9aa0b5;margin-top:3px;">Sorted by deal score (0–100): mainly price vs comparable homes, plus size, garden/en-suite, freshness &amp; reductions.</div>
     </td></tr>
     <tr><td class="px" style="padding:12px 16px 0;">
       {% if new_listings %}
