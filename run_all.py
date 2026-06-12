@@ -41,6 +41,8 @@ def _parse_args() -> argparse.Namespace:
 
 
 def run(mode: str, only: str | None, dry_run: bool) -> int:
+    manage_database.init_schema()
+
     try:
         configs = load_configs(get_storage_settings().config_dir)
     except ConfigError as e:

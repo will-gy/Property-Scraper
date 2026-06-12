@@ -5,16 +5,18 @@ history in SQLite, and emails a daily digest of **new listings** and **price
 changes** per area.
 
 - Reads each search's results page and extracts the embedded `__NEXT_DATA__` JSON.
-- Stores listings per area; a price change is kept as a new row, so full price
-  history is retained.
+- Scrapes each area **wide** (whole local market) into one `listings` table; a
+  price change is kept as a new row, so full price history is retained.
+- Narrows down to what you care about with **Python-side filters** at email time,
+  so changing a filter never needs a re-scrape.
 - Emails new + price-changed properties over a configurable look-back window.
 
 ## How it works
 
 ```
-config/*.json  ──►  run_all.py ──► scrape ──► SQLite (one table per area)
-   (per area)            │                         │
-   .env / .env.prod ─────┘            email ◄──────┘  (new + price-changed)
+config/*.json  ──►  run_all.py ──► scrape (wide) ──► SQLite `listings` table
+   (per area)            │                                  │
+   .env / .env.prod ─────┘        email ◄── filter ◄────────┘  (new + price-changed)
 ```
 
 A single entrypoint, `run_all.py`, scrapes and/or emails **every** configured
@@ -29,6 +31,7 @@ summary but never stops the others.
 | `pipeline.py` | Per-area `scrape_location` / `email_location` operations |
 | `config_models.py` | Pydantic models validating each location config |
 | `config_loader.py` | Discovers + validates `config/*.json` |
+| `filters.py` | Pure bed/price/distance filters applied at email time |
 | `settings.py` | Env/`.env`-backed settings (secrets, logging, storage paths) |
 | `logging_setup.py` | Rotating file + console logging |
 | `app.py` | Shared `ManageDatabase` instance |
@@ -95,6 +98,10 @@ or stray keys fail immediately.
     "area": "ClaphamSouth",
     "channel": "rent",
     "search_url": "https://www.rightmove.co.uk/property-to-rent/find.html?locationIdentifier=STATION%5E2162&...&index=0&...",
+    "filters": {
+        "min_beds": 1,
+        "max_price": 1750
+    },
     "email": {
         "subject_tag": "Clapham South",
         "to_addr": [],
@@ -102,16 +109,21 @@ or stray keys fail immediately.
         "time_period_hours": 24,
         "enabled": true
     },
-    "scraper": { "enabled": true }
+    "scraper": { "enabled": true, "max_pages": 42 }
 }
 ```
 
 - `channel`: `rent` or `buy`.
 - `search_url`: a Rightmove results URL — must contain `&index=0` (used for
-  pagination). Build one by running the search on rightmove.co.uk and copying the
-  URL, or use the bundled helper to resolve a `locationIdentifier` and scaffold a
-  config (see below).
+  pagination). Leave **price/bedroom filters out of the URL** and put them in
+  `filters` instead, so the database stores the whole local market (for analytics)
+  while emails stay narrowed. Build one by running the search on rightmove.co.uk
+  and copying the URL, or use the bundled helper (see below).
+- `filters` (all optional): `min_beds`, `max_beds`, `min_price`, `max_price`,
+  `max_distance`. Applied in Python at email time — change them any time, no
+  re-scrape needed. Omit the block to email everything scraped.
 - `time_period_hours`: how far back the email looks for new/changed listings.
+- `scraper.max_pages`: caps pages fetched per scrape (Rightmove tops out ~42).
 
 ### Finding a location / scaffolding a config
 
@@ -165,12 +177,12 @@ outside the repo** so they survive and are never committed:
 
 | When | Cron | Action |
 |------|------|--------|
-| Hourly, 08:00–18:00 daily | `0 8-18 * * *` | `run_all.py --mode scrape` |
-| 09:30 daily | `30 9 * * *` | `run_all.py --mode email` |
+| Every 2h, 08:00–18:00 | `0 8-18/2 * * *` | `run_all.py --mode scrape` (08,10,…,18) |
+| 10:30 daily | `30 10 * * *` | `run_all.py --mode email` |
 
-`8-18` is an hourly range (08:00, 09:00, … 18:00). Each command is prefixed with
-`APP_ENV=prod` so the run loads `.env` + `.env.prod`. The 09:30 email follows the
-08:00 and 09:00 scrapes, so it reflects fresh data.
+`8-18/2` is a stepped range (08:00, 10:00, 12:00, 14:00, 16:00, 18:00). Each
+command is prefixed with `APP_ENV=prod` so the run loads `.env` + `.env.prod`. The
+10:30 email follows the 10:00 scrape, so it reflects fresh data.
 
 To run manually on the Pi:
 

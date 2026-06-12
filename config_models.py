@@ -30,15 +30,33 @@ class ScraperConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     enabled: bool = True
+    max_pages: int = Field(default=42, gt=0)  # Rightmove caps results at ~42 pages
+
+
+class FilterConfig(BaseModel):
+    """Filters applied (in Python) to decide which stored listings get emailed.
+
+    Searches are scraped wide (all prices/beds in the area) so the database holds
+    the whole market for analytics; these narrow it down per email digest. Change
+    them any time — no re-scrape needed.
+    """
+    model_config = ConfigDict(extra="forbid")
+
+    min_beds: int | None = None
+    max_beds: int | None = None
+    min_price: float | None = None
+    max_price: float | None = None
+    max_distance: float | None = None
 
 
 class LocationConfig(BaseModel):
-    """A single scrape + email target. ``area`` doubles as the SQL table name."""
+    """A single scrape + email target. ``area`` doubles as the listings key."""
     model_config = ConfigDict(extra="forbid")
 
     area: str = Field(min_length=1)
     channel: Channel
     search_url: str
+    filters: FilterConfig = Field(default_factory=FilterConfig)
     email: EmailConfig = Field(default_factory=EmailConfig)
     scraper: ScraperConfig = Field(default_factory=ScraperConfig)
 
@@ -47,8 +65,7 @@ class LocationConfig(BaseModel):
     def _validate_area(cls, value: str) -> str:
         if not _AREA_RE.fullmatch(value):
             raise ValueError(
-                "area must contain only letters, digits and underscores "
-                "(it is used as a SQL table name)"
+                "area must contain only letters, digits and underscores"
             )
         return value
 
@@ -60,7 +77,3 @@ class LocationConfig(BaseModel):
         if "&index=0" not in value:
             raise ValueError("search_url must contain '&index=0' so pagination works")
         return value
-
-    @property
-    def table_name(self) -> str:
-        return self.area

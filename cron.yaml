@@ -6,8 +6,8 @@
 # settings.py load .env + .env.prod (paths pointing outside the repo). This keeps
 # the environment selection self-contained in the repo — no Pi-side shell config.
 
-- schedule: "0 8-18 * * *"
+- schedule: "0 8-18/2 * * *"
   command: "APP_ENV=prod ${PROJECT_DIR}/.venv/bin/python ${PROJECT_DIR}/run_all.py --mode scrape"
 
-- schedule: "30 9 * * *"
+- schedule: "30 10 * * *"
   command: "APP_ENV=prod ${PROJECT_DIR}/.venv/bin/python ${PROJECT_DIR}/run_all.py --mode email"

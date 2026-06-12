@@ -1,9 +1,45 @@
+"""SQLite access for the unified ``listings`` table.
+
+One table holds every area's listings, keyed by ``UNIQUE(area, id, price)`` so a
+price change for a listing is stored as a new row — preserving full price history
+while ignoring unchanged re-scrapes.
+"""
 import logging
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
+
+# TODO: Migrate to pydantic
+_SCHEMA = """
+CREATE TABLE IF NOT EXISTS listings (
+    area        TEXT    NOT NULL,
+    channel     TEXT    NOT NULL DEFAULT 'rent',
+    id          INTEGER NOT NULL,
+    timestamp   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    price       REAL    NOT NULL,
+    beds        TEXT,
+    link        TEXT,
+    address     TEXT,
+    description TEXT,
+    image       TEXT,
+    latitude    REAL,
+    longitude   REAL,
+    distance    REAL,
+    UNIQUE(area, id, price)
+);
+"""
+
+_INDEXES = (
+    "CREATE INDEX IF NOT EXISTS idx_listings_area_ts ON listings(area, timestamp);",
+    "CREATE INDEX IF NOT EXISTS idx_listings_area_id ON listings(area, id);",
+)
+
+_INSERT_COLUMNS = (
+    "area", "channel", "id", "price", "beds", "link", "address",
+    "description", "image", "latitude", "longitude", "distance",
+)
 
 
 class ManageDatabase:
@@ -26,48 +62,41 @@ class ManageDatabase:
         finally:
             connection.close()
 
-    def create_table(self, table_name: str) -> None:
+    def init_schema(self) -> None:
         with self._cursor() as cursor:
-            cursor.execute(
-                f'CREATE TABLE IF NOT EXISTS "{table_name}" ('
-                "ID INT NOT NULL,"
-                "TIMESTAMP DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,"
-                "PRICE FLOAT NOT NULL,"
-                "BEDS TEXT,"
-                "LINK TEXT,"
-                "ADDRESS TEXT,"
-                "DESCRIPTION TEXT,"
-                "IMAGE TEXT,"
-                "LATTITUDE FLOAT,"
-                "LONGITUDE FLOAT,"
-                "DISTANCE FLOAT,"
-                "UNIQUE(ID,PRICE))"
-            )
+            cursor.execute(_SCHEMA)
+            for statement in _INDEXES:
+                cursor.execute(statement)
 
-    def update_house(self, table_name: str, data: list) -> None:
+    def insert_listings(self, area: str, channel: str, rows: list[dict]) -> None:
+        """Insert scraped listings for an area (ignoring unchanged duplicates)."""
+        if not rows:
+            return
+        placeholders = ", ".join(f":{col}" for col in _INSERT_COLUMNS)
+        columns = ", ".join(_INSERT_COLUMNS)
+        payload = [{**row, "area": area, "channel": channel} for row in rows]
         with self._cursor() as cursor:
             cursor.executemany(
-                f'INSERT OR IGNORE INTO "{table_name}" '
-                "(ID, PRICE, BEDS, LINK, ADDRESS, DESCRIPTION, IMAGE, LATTITUDE, LONGITUDE, DISTANCE)"
-                " VALUES (:id, :price, :beds, :link, :address, :description, :image,"
-                " :latitude, :longitude, :distance);",
-                data,
+                f"INSERT OR IGNORE INTO listings ({columns}) VALUES ({placeholders});",
+                payload,
             )
 
-    def get_record_n_hours(self, table_name: str, hour: int = 24) -> list:
+    def get_changed_ids(self, area: str, hours: int = 24) -> list[int]:
+        """Listing ids for an area with a row recorded in the last ``hours``."""
         with self._cursor() as cursor:
             cursor.execute(
-                f'SELECT DISTINCT ID FROM "{table_name}" '
-                "WHERE TIMESTAMP >= datetime('now', ?) AND TIMESTAMP < datetime('now');",
-                (f"-{int(hour)} hours",),
+                "SELECT DISTINCT id FROM listings "
+                "WHERE area = ? AND timestamp >= datetime('now', ?);",
+                (area, f"-{int(hours)} hours"),
             )
-            return cursor.fetchall()
+            return [row["id"] for row in cursor.fetchall()]
 
-    def get_record(self, table_name: str, house_id: int) -> list:
+    def get_listing_history(self, area: str, listing_id: int) -> list[sqlite3.Row]:
+        """All stored rows for one listing, newest first (full price history)."""
         with self._cursor() as cursor:
             cursor.execute(
-                "SELECT TIMESTAMP, PRICE, BEDS, LINK, ADDRESS, DESCRIPTION, IMAGE, DISTANCE "
-                f'FROM "{table_name}" WHERE ID=? ORDER BY TIMESTAMP DESC;',
-                (house_id,),
+                "SELECT timestamp, price, beds, link, address, description, image, distance "
+                "FROM listings WHERE area = ? AND id = ? ORDER BY timestamp DESC;",
+                (area, listing_id),
             )
             return cursor.fetchall()
