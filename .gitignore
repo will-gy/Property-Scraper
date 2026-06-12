@@ -20,3 +20,6 @@ config/
 database/*.backup-*.db
 logs/
 *.log
+
+# Local email preview artifact
+sample_email.html

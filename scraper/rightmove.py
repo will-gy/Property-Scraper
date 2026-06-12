@@ -34,6 +34,26 @@ def _retry_after_seconds(response) -> float | None:
         return None
 
 
+def _normalise_status(display_status) -> str:
+    """Map Rightmove's ``displayStatus`` to a normalised status."""
+    if display_status and "let agreed" in str(display_status).lower():
+        return "let_agreed"
+    return "available"
+
+
+def _parse_sqft(display_size) -> int | None:
+    """Extract a square-footage int from Rightmove's ``displaySize`` string.
+
+    e.g. "650 sq ft" or "60 sq m / 650 sq ft" -> 650; "" -> None.
+    """
+    if not display_size:
+        return None
+    match = re.search(r"([\d,]+)\s*sq\.?\s*ft", display_size)
+    if not match:
+        return None
+    return int(match.group(1).replace(",", ""))
+
+
 class RightMoveScraper(HouseScraper):
     def __init__(self, url: str, max_pages: int | None = None) -> None:
         super().__init__(url)
@@ -124,6 +144,12 @@ class RightMoveScraper(HouseScraper):
                 "latitude": location.get("latitude"),
                 "longitude": location.get("longitude"),
                 "distance": listing.get("distance"),
+                "bathrooms": listing.get("bathrooms"),
+                "property_type": listing.get("propertySubType"),
+                "first_listed": listing.get("firstVisibleDate"),
+                "available_date": listing.get("letAvailableDate"),
+                "sqft": _parse_sqft(listing.get("displaySize")),
+                "status": _normalise_status(listing.get("displayStatus")),
             }
         except (ValueError, TypeError, AttributeError) as e:
             logger.warning("Could not parse property: %s", e)

@@ -32,10 +32,12 @@ summary but never stops the others.
 | `config_models.py` | Pydantic models validating each location config |
 | `config_loader.py` | Discovers + validates `config/*.json` |
 | `filters.py` | Pure bed/price/distance filters applied at email time |
+| `analytics.py` | Per-area market stats (pure functions) |
+| `email_builder.py` + `templates/email.html.j2` | Renders the HTML digest (Jinja2) |
 | `settings.py` | Env/`.env`-backed settings (secrets, logging, storage paths) |
 | `logging_setup.py` | Rotating file + console logging |
 | `app.py` | Shared `ManageDatabase` instance |
-| `database/update_database.py` | SQLite access (context-managed connections) |
+| `database/update_database.py` | SQLite access — normalised `properties` / `property_status` / `prices` tables |
 | `scraper/` | `HouseScraper` base + `RightMoveScraper` |
 | `scraper_email/send_email.py` | Builds and sends the HTML email via Gmail SMTP |
 | `cron.yaml` | Schedule installed on the Pi by pi-deploy |
@@ -141,6 +143,32 @@ uv run python find_area.py "clapham south" --scaffold --pick 1 \
 
 The scaffolded file is written to `CONFIG_DIR` with a sensible default search URL
 (no price/bed filters) — edit it to add recipients and filters.
+
+## The email digest
+
+Each digest is a modern HTML report (built from `templates/email.html.j2`) with:
+
+- **Market snapshot** for the whole area: median asking price by bedroom band
+  (Studio/1/2/3/4+) with range and sample count, median £/bed (and £/sqft where
+  floor area exists), and average days-on-market.
+- **Trend charts** (CSS bar charts): median asking price over recent weeks (with
+  % vs 30 days ago) and new-listings-per-week velocity. These fill in as history
+  accumulates.
+- **Renter-edge signals**: % of listings reduced, and **let-pace** ("typically let
+  in ~N days") — inferred from observed "Let agreed" status flips (needs
+  `includeLetAgreed=true` in the `search_url`).
+- **Price changes** and **new listings** matching your filters, sorted best-deal
+  first (value + freshness + reductions), as cards with: a value badge (Great /
+  Good / Fair / Above average vs the area median for that bed count), £ vs median,
+  "cheaper than X% of comparable", and badges for **Just listed**, **Just reduced**
+  (with "reduced after N days") and **Cheapest in 30 days**; plus £/bed,
+  days-on-market, beds/baths/type, distance, available date, and **View** / **Map**.
+
+House-shares are excluded at the search-URL level (e.g. `&dontShow=houseShare`) so
+they don't skew the medians.
+
+Renderable standalone for previewing: build the HTML with `email_builder.build_email_html(...)`
+and write it to a file (see the verification snippet in the dev notes).
 
 ## Deployment (Raspberry Pi via pi-deploy)
 
