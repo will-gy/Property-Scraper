@@ -1,0 +1,219 @@
+{# ---------- macros ---------- #}
+{% macro bar_chart(bars, color, kind) %}
+  {% set vmax = (bars | map(attribute='value') | max) or 1 %}
+  <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
+    <tr>
+      {% for b in bars %}
+      <td align="center" class="chart-label" style="font-size:10px;color:#4a4f60;font-weight:bold;padding-bottom:3px;">
+        {% if kind == 'price' %}{{ b.value | kgbp }}{% else %}{{ b.value | round | int }}{% endif %}
+      </td>
+      {% endfor %}
+    </tr>
+    <tr style="height:70px;">
+      {% for b in bars %}
+      <td valign="bottom" align="center" style="padding:0 2px;">
+        <div style="background:{{ color }};height:{{ (b.value / vmax * 60) | round | int }}px;min-height:3px;border-radius:3px 3px 0 0;"></div>
+      </td>
+      {% endfor %}
+    </tr>
+    <tr>
+      {% for b in bars %}
+      <td align="center" class="chart-label" style="font-size:10px;color:#9aa0b5;padding-top:5px;">{{ b.label }}</td>
+      {% endfor %}
+    </tr>
+  </table>
+{% endmacro %}
+
+{% macro pill(text, fg, bg) %}<span style="display:inline-block;background:{{ bg }};color:{{ fg }};font-size:12px;font-weight:bold;padding:4px 10px;border-radius:13px;white-space:nowrap;margin:0 5px 5px 0;">{{ text }}</span>{% endmacro %}
+
+{% macro value_badge(value) %}
+  {% set styles = {'great': ('#0f7a4d', '#e3f5ec', 'Great value'),
+                   'good':  ('#1e9e62', '#eaf7f0', 'Good value'),
+                   'fair':  ('#5b6270', '#eef0f4', 'Fair price'),
+                   'pricey':('#c2410c', '#fdeee3', 'Above average')} %}
+  {% set fg, bg, label = styles[value[0]] %}
+  {{ pill(label ~ ' · ' ~ (value[1] | pct), fg, bg) }}
+{% endmacro %}
+
+{% macro listing_card(l, rent) %}
+  <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border:1px solid #e6e8ef;border-radius:12px;overflow:hidden;margin-bottom:16px;">
+    {% if l.image %}
+    <tr><td style="padding:0;"><img src="{{ l.image }}" width="600" style="display:block;width:100%;height:auto;"></td></tr>
+    {% endif %}
+    <tr><td style="padding:16px;">
+      <div style="font-size:22px;font-weight:bold;color:#1a1a2e;">
+        {{ l.price | price(rent) }}
+        {% if l.is_update and l.old_price %}
+          <span style="font-size:14px;color:#9aa0b5;text-decoration:line-through;font-weight:normal;">{{ l.old_price | gbp }}</span>
+          {% if l.price_change_pct is not none %}<span style="font-size:14px;color:{{ '#0f7a4d' if l.price_change_pct < 0 else '#c2410c' }};font-weight:bold;">{{ l.price_change_pct | pct }}</span>{% endif %}
+        {% endif %}
+      </div>
+
+      <div style="margin-top:8px;">
+        {% if l.just_reduced %}{{ pill('💷 Just reduced', '#c2410c', '#fdeee3') }}{% endif %}
+        {% if l.just_listed %}{{ pill('🟢 Just listed', '#0f7a4d', '#e3f5ec') }}{% endif %}
+        {% if l.cheapest_30d %}{{ pill('🔥 Cheapest in 30d', '#b45309', '#fef3e2') }}{% endif %}
+        {% if l.value %}{{ value_badge(l.value) }}{% endif %}
+      </div>
+
+      {% if l.vs_median_gbp or l.percentile_cheaper %}
+      <div style="font-size:13px;color:#4a4f60;margin-top:6px;">
+        {% if l.vs_median_gbp and l.vs_median_gbp >= 1 %}£{{ l.vs_median_gbp | round | int }}{{ '/mo' if rent }} below the {{ l.beds }}-bed median{% elif l.vs_median_gbp and l.vs_median_gbp <= -1 %}£{{ (-l.vs_median_gbp) | round | int }}{{ '/mo' if rent }} above the {{ l.beds }}-bed median{% endif %}
+        {% if l.percentile_cheaper %} &middot; cheaper than {{ l.percentile_cheaper }}% of comparable{% endif %}
+      </div>
+      {% endif %}
+
+      {% if l.is_update and l.reduced_after_days is not none %}
+      <div style="font-size:12px;color:#c2410c;font-weight:bold;margin-top:6px;">Reduced after {{ l.reduced_after_days }} days on the market</div>
+      {% endif %}
+
+      <div style="font-size:14px;color:#4a4f60;margin-top:10px;">
+        {{ l.beds }} bed{% if l.bathrooms %} &middot; {{ l.bathrooms }} bath{% endif %}{% if l.property_type %} &middot; {{ l.property_type }}{% endif %}{% if l.sqft %} &middot; {{ l.sqft }} sq ft{% endif %}{% if l.price_per_bed %} &middot; £{{ l.price_per_bed | round | int }}/bed{% endif %}
+      </div>
+
+      <div style="font-size:13px;color:#6b7280;margin-top:5px;">
+        {% if l.days_on_market is not none %}{% if l.days_on_market <= 0 %}Just listed{% elif l.days_on_market == 1 %}Listed 1 day ago{% else %}Listed {{ l.days_on_market }} days ago{% endif %}{% endif %}
+        {% if l.distance %} &middot; {{ l.distance }} mi{% endif %}
+        {% if rent and l.available_date %} &middot; Available {{ l.available_date | short_date }}{% endif %}
+      </div>
+
+      <div style="font-size:15px;color:#1a1a2e;font-weight:bold;margin-top:10px;">{{ l.address }}</div>
+      {% if l.description %}<div style="font-size:13px;color:#6b7280;margin-top:5px;line-height:1.5;">{{ l.description | truncate(150) }}</div>{% endif %}
+
+      {% if l.is_update and l.price_history and l.price_history | length > 1 %}
+      <div style="font-size:12px;color:#6b7280;margin-top:10px;background:#f7f8fa;border-radius:8px;padding:8px 10px;">
+        <span style="color:#9aa0b5;">Price history:</span>
+        {% for ts, p in l.price_history %}{{ p | gbp }} <span style="color:#9aa0b5;">({{ ts | short_date }})</span>{% if not loop.last %} &rarr; {% endif %}{% endfor %}
+      </div>
+      {% endif %}
+
+      <div style="margin-top:14px;">
+        <a href="{{ l.link }}" style="display:inline-block;background:#3b6fd6;color:#ffffff;font-size:14px;font-weight:bold;text-decoration:none;padding:11px 18px;border-radius:7px;">View listing</a>
+        {% if l.map_url %}<a href="{{ l.map_url }}" style="display:inline-block;color:#3b6fd6;font-size:14px;font-weight:bold;text-decoration:none;padding:11px 14px;">Map</a>{% endif %}
+      </div>
+    </td></tr>
+  </table>
+{% endmacro %}
+
+{# ---------- document ---------- #}
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light only">
+  <meta name="supported-color-schemes" content="light">
+  <style>
+    @media only screen and (max-width:600px) {
+      .container { width:100% !important; }
+      .px { padding-left:12px !important; padding-right:12px !important; }
+      .h1 { font-size:24px !important; }
+      .chart-label { font-size:8px !important; }
+    }
+  </style>
+</head>
+<body style="margin:0;padding:0;background:#ffffff;font-family:-apple-system,Segoe UI,Roboto,Arial,Helvetica,sans-serif;color:#1a1a2e;-webkit-text-size-adjust:100%;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;">
+<tr><td align="center" style="padding:0;">
+  <table role="presentation" class="container" width="600" cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;background:#ffffff;">
+
+    {# header #}
+    <tr><td style="height:6px;background:#3b6fd6;padding:0;font-size:0;line-height:0;">&nbsp;</td></tr>
+    <tr><td class="px" style="background:#1a1a2e;padding:24px 16px;">
+      <div class="h1" style="color:#ffffff;font-size:26px;font-weight:800;letter-spacing:-0.3px;">{{ subject_tag }}</div>
+      <div style="color:#aab0c8;font-size:14px;margin-top:5px;">{{ 'Rental market update' if rent else 'Sales market update' }} &middot; {{ now }}</div>
+      <div style="margin-top:16px;">
+        {% set chip = "display:inline-block;background:#2c2f4a;color:#dfe3f2;font-size:13px;font-weight:bold;padding:6px 12px;border-radius:16px;margin:0 6px 6px 0;" %}
+        <span style="{{ chip }}">✨ {{ analytics.new_count }} new</span>
+        <span style="{{ chip }}">💷 {{ analytics.reduced_count }} reduced</span>
+        <span style="{{ chip }}">🏠 {{ analytics.active }} available</span>
+        {% if analytics.let_pace_days is not none %}<span style="{{ chip }}">⚡ lets in ~{{ analytics.let_pace_days }}d</span>{% endif %}
+      </div>
+    </td></tr>
+
+    {# market snapshot #}
+    <tr><td class="px" style="padding:22px 16px 6px;">
+      <div style="font-size:18px;font-weight:bold;margin-bottom:14px;">Market snapshot</div>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;">
+        <tr style="color:#9aa0b5;font-size:11px;text-transform:uppercase;letter-spacing:0.3px;">
+          <td style="padding:4px 0;">Bedrooms</td>
+          <td align="right">Median{% if rent %} pcm{% endif %}</td>
+          <td align="right">Available</td>
+        </tr>
+        {% for s in analytics.price_by_bed %}
+        <tr style="border-top:1px solid #eef0f4;">
+          <td style="padding:9px 0;font-weight:bold;">{{ s.band }}</td>
+          <td align="right" style="padding:9px 0;">
+            <span style="font-weight:bold;">{{ s.median | gbp }}</span>
+            <div style="font-size:11px;color:#9aa0b5;">{{ s.minimum | gbp }}–{{ s.maximum | gbp }}</div>
+          </td>
+          <td align="right" style="padding:9px 0;color:#6b7280;">{{ s.count }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+      <div style="font-size:13px;color:#6b7280;margin-top:12px;">
+        {% if analytics.median_price_per_bed %}Median £{{ analytics.median_price_per_bed | round | int }} per bedroom{% endif %}
+        {% if analytics.median_price_per_sqft %} &middot; £{{ analytics.median_price_per_sqft | round | int }} per sq ft{% endif %}
+        {% if analytics.pct_reduced %} &middot; {{ analytics.pct_reduced }}% of listings reduced{% endif %}
+        {% if analytics.let_pace_days is not none %} &middot; typically let in ~{{ analytics.let_pace_days }} days (n={{ analytics.let_pace_sample }}){% endif %}
+      </div>
+    </td></tr>
+
+    {# trends #}
+    {% set show_price = analytics.price_trend | length >= 2 %}
+    {% set show_vel = analytics.new_listings_trend | length >= 2 %}
+    {% if show_price or show_vel %}
+      {% if show_price %}
+      <tr><td class="px" style="padding:16px 16px 4px;">
+        <div style="font-size:14px;font-weight:bold;">Median asking price
+          {% if analytics.price_trend_pct_30d is not none %}<span style="color:{{ '#0f7a4d' if analytics.price_trend_pct_30d <= 0 else '#c2410c' }};">{{ analytics.price_trend_pct_30d | pct }} vs 30d</span>{% endif %}
+        </div>
+        {{ bar_chart(analytics.price_trend, '#3b6fd6', 'price') }}
+      </td></tr>
+      {% endif %}
+      {% if show_vel %}
+      <tr><td class="px" style="padding:16px 16px 4px;">
+        <div style="font-size:14px;font-weight:bold;">New listings per week</div>
+        {{ bar_chart(analytics.new_listings_trend, '#1e9e62', 'count') }}
+      </td></tr>
+      {% endif %}
+    {% else %}
+      <tr><td class="px" style="padding:14px 16px;">
+        <div style="font-size:12px;color:#9aa0b5;background:#f7f8fa;border-radius:8px;padding:10px 12px;">📈 Price & new-listing trend charts will appear here once a couple of weeks of data have been collected.</div>
+      </td></tr>
+    {% endif %}
+
+    {# price changes #}
+    {% if updated_listings %}
+    <tr><td class="px" style="padding:22px 16px 0;">
+      <div style="font-size:18px;font-weight:bold;color:#c2410c;">💷 Price changes ({{ updated_listings | length }})</div>
+      <div style="font-size:12px;color:#9aa0b5;margin-top:3px;">A fresh reduction often means a motivated landlord — worth an early enquiry.</div>
+    </td></tr>
+    <tr><td class="px" style="padding:12px 16px 0;">
+      {% for l in updated_listings %}{{ listing_card(l, rent) }}{% endfor %}
+    </td></tr>
+    {% endif %}
+
+    {# new listings #}
+    <tr><td class="px" style="padding:22px 16px 0;">
+      <div style="font-size:18px;font-weight:bold;">✨ New listings ({{ new_listings | length }})</div>
+      <div style="font-size:12px;color:#9aa0b5;margin-top:3px;">Sorted best-deal first (value, freshness & reductions). Value compares each price to the area median for the same bedroom count.</div>
+    </td></tr>
+    <tr><td class="px" style="padding:12px 16px 0;">
+      {% if new_listings %}
+        {% for l in new_listings %}{{ listing_card(l, rent) }}{% endfor %}
+      {% else %}
+        <div style="font-size:14px;color:#6b7280;padding-bottom:12px;">No new listings matched your filters this period.</div>
+      {% endif %}
+    </td></tr>
+
+    {# footer #}
+    <tr><td class="px" style="background:#f7f8fa;padding:20px 16px;border-top:1px solid #eef0f4;">
+      <div style="font-size:12px;color:#9aa0b5;">Property Scraper &middot; {{ subject_tag }} &middot; {{ now }}</div>
+    </td></tr>
+
+  </table>
+</td></tr>
+</table>
+</body>
+</html>
