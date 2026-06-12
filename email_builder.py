@@ -76,12 +76,16 @@ def _decorate(listing: dict, a: AreaAnalytics) -> dict:
     d["vs_median_gbp"] = analytics_mod.vs_median_gbp(listing, a)
     d["percentile_cheaper"] = analytics_mod.percentile_cheaper_than(listing, a)
     d["cheapest_30d"] = analytics_mod.is_cheapest_30d(listing, a)
+    d["has_garden"] = analytics_mod.has_garden(listing)
+    d["has_ensuite"] = analytics_mod.has_ensuite(listing)
+    d["large_space"] = analytics_mod.large_space(listing, a)
     d["just_listed"] = d["days_on_market"] is not None and d["days_on_market"] <= 1
     d["just_reduced"] = bool(listing.get("is_update") and (listing.get("price_change_pct") or 0) < 0)
     d["reduced_after_days"] = _reduced_after_days(listing)
     lat, lng = listing.get("latitude"), listing.get("longitude")
     d["map_url"] = f"https://www.google.com/maps?q={lat},{lng}" if lat and lng else None
-    d["deal_score"] = _deal_score(d)
+    d["deal_score"] = _deal_score(d, a)
+    d["deal_band"] = _deal_band(d["deal_score"])
     return d
 
 
@@ -97,17 +101,52 @@ def _reduced_after_days(listing: dict) -> int | None:
     return days if days >= 0 else None
 
 
-def _deal_score(d: dict) -> float:
-    """Higher = better opportunity. Below-median value, plus freshness/reduction."""
-    value = d.get("value")
-    score = max(0.0, -value[1]) if value else 0.0   # value[1] < 0 means below median
-    if d.get("just_listed"):
-        score += 15
-    if d.get("just_reduced"):
-        score += 15
-    if d.get("cheapest_30d"):
-        score += 10
-    return score
+def _clamp(value: float, lo: float = 0, hi: float = 100) -> float:
+    return max(lo, min(hi, value))
+
+
+_BANDS = (
+    (80, "Excellent", "#0f7a4d", "#e3f5ec"),
+    (70, "Great", "#1e9e62", "#eaf7f0"),
+    (50, "Good", "#3b6fd6", "#e8f0fd"),
+    (35, "Fair", "#5b6270", "#eef0f4"),
+    (0, "Below par", "#c2410c", "#fdeee3"),
+)
+
+
+def _deal_band(score: int) -> dict:
+    for threshold, label, fg, bg in _BANDS:
+        if score >= threshold:
+            return {"label": label, "fg": fg, "bg": bg}
+    return {"label": "Below par", "fg": "#c2410c", "bg": "#fdeee3"}
+
+
+def _deal_score(d: dict, a: AreaAnalytics) -> int:
+    """0–100 intrinsic quality/value score, price-dominant (70%).
+
+    Extras (30%): size vs band median, garden, en-suite, extra bath, station
+    proximity. Deliberately excludes freshness/reductions — those are about
+    timing, not how good the property itself is. Higher = better.
+    """
+    percentile = d.get("percentile_cheaper")
+    if percentile is None:                       # small band: fall back to % vs median
+        value = d.get("value")
+        percentile = _clamp(50 + (-value[1]) * 2) if value else 50
+    price_component = percentile
+
+    extras = 50.0 + analytics_mod.size_modifier(d, a)
+    if d.get("has_garden"):
+        extras += 12
+    if d.get("has_ensuite"):
+        extras += 4
+    if (d.get("bathrooms") or 0) >= 2:
+        extras += 4
+    distance, median_distance = d.get("distance"), a.median_distance
+    if distance is not None and median_distance is not None and distance < median_distance:
+        extras += 6
+    extras = _clamp(extras)
+
+    return round(_clamp(0.7 * price_component + 0.3 * extras))
 
 
 def _sort_by_deal(listings: list[dict]) -> list[dict]:

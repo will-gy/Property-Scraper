@@ -157,12 +157,15 @@ Each digest is a modern HTML report (built from `templates/email.html.j2`) with:
 - **Renter-edge signals**: % of listings reduced, and **let-pace** ("typically let
   in ~N days") — inferred from observed "Let agreed" status flips (needs
   `includeLetAgreed=true` in the `search_url`).
-- **Price changes** and **new listings** matching your filters, sorted best-deal
-  first (value + freshness + reductions), as cards with: a value badge (Great /
-  Good / Fair / Above average vs the area median for that bed count), £ vs median,
-  "cheaper than X% of comparable", and badges for **Just listed**, **Just reduced**
-  (with "reduced after N days") and **Cheapest in 30 days**; plus £/bed,
-  days-on-market, beds/baths/type, distance, available date, and **View** / **Map**.
+- A **0–100 deal score** (colour-coded pill by the price) ranking each listing:
+  ~70% price vs comparable homes, plus size (sqft vs band median), garden /
+  en-suite / extra bath. Listings are sorted by it.
+- **Price changes** and **new listings** matching your filters, as cards with: a
+  value badge (vs the area median for that bed count), £ vs median, "cheaper than
+  X% of comparable", and badges for **Just listed**, **Just reduced** (with
+  "reduced after N days"), **Cheapest in 30 days**, **🌳 Garden** and **Large
+  space**; plus £/bed, days-on-market, beds/baths/type, distance, available date,
+  and **View** / **Map**.
 
 House-shares are excluded at the search-URL level (e.g. `&dontShow=houseShare`) so
 they don't skew the medians.

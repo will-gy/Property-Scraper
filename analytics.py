@@ -115,6 +115,8 @@ class AreaAnalytics:
     new_listings_trend: list[Bar] = field(default_factory=list)
     let_pace_days: int | None = None
     let_pace_sample: int = 0
+    median_sqft_by_band: dict[str, float] = field(default_factory=dict)
+    median_distance: float | None = None
 
 # computation
 def _latest_per_listing(rows) -> dict:
@@ -143,6 +145,8 @@ def compute(rows, channel: str, window_hours: int = 24) -> AreaAnalytics:
     a.median_price_per_sqft = _median_ratio(active, "sqft")
     a.band_30d_low = _band_30d_low(rows)
     a.pct_reduced = _pct_reduced(active, history)
+    a.median_sqft_by_band = _median_sqft_by_band(active)
+    a.median_distance = _median_distance(active)
     _trends(rows, active, a)
     _window_counts(active, history, a, window_hours)
     _let_pace(latest, a)
@@ -187,6 +191,20 @@ def _band_30d_low(rows) -> dict[str, float]:
             if band not in low or price < low[band]:
                 low[band] = price
     return low
+
+
+def _median_sqft_by_band(active) -> dict[str, float]:
+    by_band: dict[str, list[float]] = defaultdict(list)
+    for row in active.values():
+        band, sqft = _bed_band(row["beds"]), _to_float(row["sqft"])
+        if band and sqft:
+            by_band[band].append(sqft)
+    return {band: statistics.median(vals) for band, vals in by_band.items()}
+
+
+def _median_distance(active) -> float | None:
+    dists = [d for d in (_to_float(r["distance"]) for r in active.values()) if d is not None]
+    return statistics.median(dists) if dists else None
 
 
 def _pct_reduced(active, history) -> float:
@@ -296,6 +314,42 @@ def is_cheapest_30d(listing, a: AreaAnalytics) -> bool:
     low = a.band_30d_low.get(_bed_band(listing.get("beds")) or "")
     price = _to_float(listing.get("price"))
     return low is not None and price is not None and price <= low
+
+
+def has_garden(listing) -> bool:
+    """Private garden/outdoor space — rejects 'communal'/'shared' mentions."""
+    segments = [s.lower() for s in str(listing.get("key_features") or "").split("|")]
+    if listing.get("description"):
+        segments.append(str(listing["description"]).lower())
+    return any(
+        "garden" in s and "communal" not in s and "shared" not in s for s in segments
+    )
+
+
+def has_ensuite(listing) -> bool:
+    text = f"{listing.get('key_features') or ''} {listing.get('description') or ''}".lower()
+    return any(token in text for token in ("en suite", "ensuite", "en-suite"))
+
+
+def large_space(listing, a: AreaAnalytics) -> int | None:
+    """% larger than the band median sqft, when that's >=15%; else None."""
+    band = _bed_band(listing.get("beds"))
+    sqft = _to_float(listing.get("sqft"))
+    median = a.median_sqft_by_band.get(band or "")
+    if not sqft or not median:
+        return None
+    pct = (sqft - median) / median
+    return round(pct * 100) if pct >= 0.15 else None
+
+
+def size_modifier(listing, a: AreaAnalytics) -> float:
+    """Continuous spaciousness score in [-20, +20]; 0 when sqft unknown."""
+    band = _bed_band(listing.get("beds"))
+    sqft = _to_float(listing.get("sqft"))
+    median = a.median_sqft_by_band.get(band or "")
+    if not sqft or not median:
+        return 0.0
+    return max(-20.0, min(20.0, (sqft - median) / median * 60))
 
 
 def value_rating(listing, a: AreaAnalytics) -> tuple[str, float] | None:

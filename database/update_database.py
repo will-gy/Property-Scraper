@@ -35,6 +35,7 @@ _SCHEMA = (
         longitude     REAL,
         distance      REAL,
         first_listed  DATETIME,
+        key_features  TEXT,
         PRIMARY KEY (area, listing_id)
     );
     """,
@@ -66,7 +67,7 @@ _SCHEMA = (
 _PROPERTY_COLUMNS = (
     "area", "listing_id", "channel", "beds", "bathrooms", "property_type", "sqft",
     "link", "address", "description", "image", "latitude", "longitude", "distance",
-    "first_listed",
+    "first_listed", "key_features",
 )
 
 # Columns returned by get_area_rows, denormalised back to one row per price point.
@@ -74,7 +75,7 @@ _AREA_ROWS_SQL = """
     SELECT p.listing_id AS id, pr.price, pr.timestamp,
            p.channel, p.beds, p.bathrooms, p.property_type, p.sqft,
            p.link, p.address, p.description, p.image,
-           p.latitude, p.longitude, p.distance, p.first_listed,
+           p.latitude, p.longitude, p.distance, p.first_listed, p.key_features,
            s.status, s.available_date, s.last_seen, s.let_agreed_at
     FROM prices pr
     JOIN properties p USING (area, listing_id)

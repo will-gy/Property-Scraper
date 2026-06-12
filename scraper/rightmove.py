@@ -34,6 +34,14 @@ def _retry_after_seconds(response) -> float | None:
         return None
 
 
+def _join_key_features(key_features) -> str | None:
+    """Flatten Rightmove's keyFeatures list into a single ' | '-joined string."""
+    if not key_features:
+        return None
+    parts = [f.get("description", "").strip() for f in key_features if f.get("description")]
+    return " | ".join(parts) or None
+
+
 def _normalise_status(display_status) -> str:
     """Map Rightmove's ``displayStatus`` to a normalised status."""
     if display_status and "let agreed" in str(display_status).lower():
@@ -150,6 +158,7 @@ class RightMoveScraper(HouseScraper):
                 "available_date": listing.get("letAvailableDate"),
                 "sqft": _parse_sqft(listing.get("displaySize")),
                 "status": _normalise_status(listing.get("displayStatus")),
+                "key_features": _join_key_features(listing.get("keyFeatures")),
             }
         except (ValueError, TypeError, AttributeError) as e:
             logger.warning("Could not parse property: %s", e)
